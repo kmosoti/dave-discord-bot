@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -131,6 +132,7 @@ celerybeat.pid
 .env
 .venv
 env/
+dave_discord_env/
 venv/
 ENV/
 env.bak/
