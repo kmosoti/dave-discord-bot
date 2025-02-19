@@ -1,3 +1,11 @@
+#secrets
+secrets.py
+config.json
+config.py
+*.env
+*.pem
+*.key
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
