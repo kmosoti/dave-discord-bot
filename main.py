@@ -2,36 +2,18 @@ import pathlib
 import json
 import logging
 import discord
+import wavelink
+import typing
 import asyncio
 from discord.ext import commands
+from utils import config, discord_logger, lavalink_manager 
 
-# Configure logging to output to both console and file
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler(f"logs/bot.log", encoding="utf-8"),
-        logging.StreamHandler()
-    ]
-)
-logging.getLogger("discord.gateway").setLevel(logging.WARNING)
+# Set up logging
+discord_logger.setup_logging("logs/bot.log")
 
-# Load configuration from data/config.json
-config_path = pathlib.Path("data/config.json")
-if not config_path.exists():
-    logging.error("Configuration file not found.")
-    exit(1)
-
-with config_path.open("r") as f:
-    config = json.load(f)
-
+# Load configuration
+config = config.load_config("data/config.json")
 TOKEN = config.get("DISCORD_TOKEN")
-if not TOKEN:
-    logging.error("DISCORD_TOKEN not set in configuration file.")
-    exit(1)
-
-# Read guild IDs list from configuration (for testing, these guilds will update instantly)
 GUILD_IDS = config.get("GUILD_IDS", [])
 
 # Define the bot's intents
@@ -54,7 +36,6 @@ async def load_extensions():
                 logging.info(f"Loaded cog: {cog_path}")
             except Exception as e:
                 logging.error(f"Failed to load cog {cog_path}: {e}")
-
 
 @bot.event
 async def on_ready():
@@ -79,7 +60,15 @@ if __name__ == "__main__":
     logging.info("Starting bot...")
     logging.info(f"Guild IDs: {GUILD_IDS}")
     logging.info(f"Pycord version: {discord.__version__}")
+
     bot.loop.create_task(load_extensions())
+
+    #Register the Lavalink node ready listener
+    lavalink_manager.register_node_ready_listener(bot)
+
+    # Connect to Lavalink nodes
+    bot.loop.create_task(lavalink_manager.connect_nodes(bot))
+
     try:
         bot.run(TOKEN)
     except discord.errors.LoginFailure as e:
