@@ -6,7 +6,7 @@ import wavelink
 import typing
 import asyncio
 from discord.ext import commands
-from utils import config, discord_logger, lavalink_manager 
+from utils import discord_logger, lavalink_manager 
 
 
 
