@@ -46,6 +46,5 @@ tornado==6.4.2
 traitlets==5.14.3
 typing==3.7.4.3
 typing_extensions==4.12.2
-wavelink==3.4.1 --no-deps
 wcwidth==0.2.13
 yarl==1.18.3
