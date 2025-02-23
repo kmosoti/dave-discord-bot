@@ -8,23 +8,7 @@ import asyncio
 from discord.ext import commands
 from utils import config, discord_logger, lavalink_manager 
 
-# Set up logging
-discord_logger.setup_logging("logs/bot.log")
 
-# Load configuration
-config = config.load_config("data/config.json")
-TOKEN = config.get("DISCORD_TOKEN")
-GUILD_IDS = config.get("GUILD_IDS", [])
-
-# Define the bot's intents
-intents = discord.Intents.default()
-intents.message_content = True
-
-# Instantiate the bot with our intents and debug_guilds for instant command registration
-bot = discord.Bot(intents=intents, debug_guilds=GUILD_IDS)
-
-# Optionally attach config to the bot for easy access in your cogs
-bot.config = config
 
 async def load_extensions():
     cogs_dir = pathlib.Path("cogs")
@@ -36,6 +20,33 @@ async def load_extensions():
                 logging.info(f"Loaded cog: {cog_path}")
             except Exception as e:
                 logging.error(f"Failed to load cog {cog_path}: {e}")
+
+def load_config(file_path: str) -> dict:
+    import json
+    with open(file_path, "r", encoding="utf-8") as f:
+        config_data = json.load(f)
+    print("Loaded config:", config_data)  # Debug: inspect the config
+    if "DISCORD" not in config_data or "DISCORD_TOKEN" not in config_data["DISCORD"]:
+        raise Exception("DISCORD_TOKEN not set in configuration file.")
+    return config_data
+
+# Set up logging
+discord_logger.setup_logging("logs/bot.log")
+
+# Load configuration
+config_data = load_config("data/config.json")
+TOKEN = config_data["DISCORD"]["DISCORD_TOKEN"]
+GUILD_IDS = config_data["DISCORD"].get("GUILD_IDS", [])
+
+# Define the bot's intents
+intents = discord.Intents.default()
+intents.message_content = True
+
+# Instantiate the bot with our intents and debug_guilds for instant command registration
+bot = discord.Bot(intents=intents, debug_guilds=GUILD_IDS)
+
+# Optionally attach config to the bot for easy access in your cogs
+bot.config = config_data
 
 @bot.event
 async def on_ready():

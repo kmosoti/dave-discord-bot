@@ -1,0 +1,12 @@
+{
+    "DISCORD": {
+        "DISCORD_TOKEN": "API_TOKEN",
+        "GUILD_IDS": []
+    },
+    "LAVALINK": {
+        "LAVALINK_HOST": "http://127.0.0.1",
+        "LAVALINK_PORT": 2333,
+        "LAVALINK_PASSWORD": "LAVALINK_PASSWORD"
+    }
+}
+  
