@@ -36,6 +36,9 @@ def setup_logging(log_file: str = "logs/bot.log") -> None:
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
     formatter = JsonFormatter(
         fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -44,18 +47,15 @@ def setup_logging(log_file: str = "logs/bot.log") -> None:
     try:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
     except FileNotFoundError:
         #Logs directory probably not needed but formatting is needed
         pass
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
-
-    if logger.hasHandlers():
-        logger.handlers.clear()
-    logger.addHandler(file_handler)
     logger.addHandler(console_handler)
-
+    
     logging.getLogger("discord.gateway").setLevel(logging.WARNING)
 
 def log_command_invocation(ctx: discord.ApplicationContext, command_name: str):
