@@ -41,8 +41,12 @@ def setup_logging(log_file: str = "logs/bot.log") -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setFormatter(formatter)
+    try:
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(formatter)
+    except FileNotFoundError:
+        #Logs directory probably not needed but formatting is needed
+        pass
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
