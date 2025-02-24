@@ -67,7 +67,7 @@ class PlayCog(commands.Cog):
 
     @discord.slash_command(
     name="play", 
-    description="Play a song from a search query (SoundCloud by default) or enqueue it if something is already playing."
+    description="Play a song from a search query (SoundCloud by default) or enqueue it."
     )
     async def play(self, ctx: discord.ApplicationContext, search: str):
         """
