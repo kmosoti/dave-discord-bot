@@ -2,6 +2,7 @@ import typing
 import discord
 from discord.ext import commands
 import wavelink
+import asyncio
 from utils.discord_logger import log_command_invocation, log_error
 
 # Helper function to connect to the user's voice channel.
@@ -14,8 +15,13 @@ async def connect_to_voice_channel(ctx: discord.ApplicationContext) -> wavelink.
     if not vc:
         vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
         vc.queue = wavelink.Queue()  # Initialize the queue immediately.
+        # Schedule a task to disconnect if the player is inactive.
+        vc.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(vc))
     elif vc.channel.id != ctx.author.voice.channel.id:
         raise ValueError("You must be in the same voice channel as the bot.")
+    
+    # Schedule a task to disconnect if the player is inactive.
+    vc.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(vc))
 
     return vc
 
@@ -34,7 +40,18 @@ async def search_for_track(query: str) -> wavelink.Playable:
     # Return the first track from the search results.
     return songs[0]
 
+async def schedule_inactivity_disconnect(player: wavelink.Player):
+    # Wait for 60 seconds before checking for inactivity.
+    await asyncio.sleep(60)
+    # If still not playing, disconnect.
+    if not player.playing:
+        log_command_invocation(None, "Inactivity timeout reached. Disconnecting from voice.")
+        await player.disconnect()
+
+
 async def play_song(vc: wavelink.Player, song: wavelink.Playable, ctx: discord.ApplicationContext) -> None:
+    if hasattr(vc, "inactive_task") and not vc.inactive_task.done():
+        vc.inactive_task.cancel()
     if not vc.playing:
         try:
             await vc.play(song)
@@ -60,10 +77,17 @@ class PlayCog(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         player: wavelink.Player = payload.player
-        # Only advance if the track ended normally.
-        if payload.reason == "finished" and hasattr(player, "queue") and not player.queue.is_empty:
-            next_track = player.queue.get()  # You could also await player.queue.get_wait()
+        # Only advance if the track ended normally and there is a queue.
+        if payload.reason.lower() == "finished" and hasattr(player, "queue") and not player.queue.is_empty:
+            next_track = player.queue.get()  # or await player.queue.get_wait() if needed
             await player.play(next_track)
+            # Cancel any pending inactivity disconnect.
+            if hasattr(player, "inactive_task") and not player.inactive_task.done():
+                player.inactive_task.cancel()
+        else:
+            # Schedule disconnect after inactivity if nothing is playing.
+            if not player.playing:
+                player.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(player))
 
     @discord.slash_command(
     name="play", 
