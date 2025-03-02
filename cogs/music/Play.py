@@ -15,13 +15,14 @@ async def connect_to_voice_channel(ctx: discord.ApplicationContext) -> wavelink.
     if not vc:
         vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
         vc.queue = wavelink.Queue()  # Initialize the queue immediately.
-        # Schedule a task to disconnect if the player is inactive.
-        vc.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(vc))
+        vc.inactive_timeout = 60  # ADDED: Set built-in inactivity timeout to 60 seconds.
+        # Removed manual scheduling of inactivity disconnect:
+        # vc.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(vc))
     elif vc.channel.id != ctx.author.voice.channel.id:
         raise ValueError("You must be in the same voice channel as the bot.")
     
-    # Schedule a task to disconnect if the player is inactive.
-    vc.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(vc))
+    # Ensure inactive_timeout is set when reusing the voice client.
+    vc.inactive_timeout = 60
 
     return vc
 
@@ -40,16 +41,15 @@ async def search_for_track(query: str) -> wavelink.Playable:
     # Return the first track from the search results.
     return songs[0]
 
-async def schedule_inactivity_disconnect(player: wavelink.Player):
-    # Wait for 60 seconds before checking for inactivity.
-    await asyncio.sleep(60)
-    # If still not playing, disconnect.
-    if not player.playing:
-        log_command_invocation(None, "Inactivity timeout reached. Disconnecting from voice.")
-        await player.disconnect()
-
+# Removed: schedule_inactivity_disconnect function is no longer needed because we use the built-in inactive_timeout.
+# async def schedule_inactivity_disconnect(player: wavelink.Player):
+#     await asyncio.sleep(60)
+#     if not player.playing:
+#         log_command_invocation(None, "Inactivity timeout reached. Disconnecting from voice.")
+#         await player.disconnect()
 
 async def play_song(vc: wavelink.Player, song: wavelink.Playable, ctx: discord.ApplicationContext) -> None:
+    # Cancel any manual inactivity disconnect tasks if they exist.
     if hasattr(vc, "inactive_task") and not vc.inactive_task.done():
         vc.inactive_task.cancel()
     if not vc.playing:
@@ -81,17 +81,23 @@ class PlayCog(commands.Cog):
         if payload.reason.lower() == "finished" and hasattr(player, "queue") and not player.queue.is_empty:
             next_track = player.queue.get()  # or await player.queue.get_wait() if needed
             await player.play(next_track)
-            # Cancel any pending inactivity disconnect.
+            # Cancel any pending manual inactivity disconnect.
             if hasattr(player, "inactive_task") and not player.inactive_task.done():
                 player.inactive_task.cancel()
-        else:
-            # Schedule disconnect after inactivity if nothing is playing.
-            if not player.playing:
-                player.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(player))
+        # Removed manual scheduling of inactivity disconnect.
+        # else:
+        #     if not player.playing:
+        #         player.inactive_task = asyncio.create_task(schedule_inactivity_disconnect(player))
+
+    # ADDED: Event listener for built-in inactivity timeout.
+    @commands.Cog.listener()
+    async def on_wavelink_inactive_player(self, player: wavelink.Player) -> None:
+        log_command_invocation(None, "Inactive timeout reached. Disconnecting from voice.")
+        await player.disconnect()
 
     @discord.slash_command(
-    name="play", 
-    description="Play a song from a search query (SoundCloud by default) or enqueue it."
+        name="play", 
+        description="Play a song from a search query (SoundCloud by default) or enqueue it."
     )
     async def play(self, ctx: discord.ApplicationContext, search: str):
         """
