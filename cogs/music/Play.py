@@ -28,10 +28,13 @@ async def connect_to_voice_channel(ctx: discord.ApplicationContext) -> wavelink.
 
 # Helper function to perform a search and return the first track.
 async def search_for_track(query: str) -> wavelink.Playable:
-    if query.startswith("http"):
-        songs = await wavelink.Playable.search(query)
     try:
-        songs = await wavelink.Playable.search(query, source=wavelink.TrackSource.SoundCloud)
+        if query.startswith("http"):
+            # Direct URL - search without specifying a source
+            songs = await wavelink.Playable.search(query)
+        else:
+            # Plain search term - use SoundCloud by default
+            songs = await wavelink.Playable.search(query, source=wavelink.TrackSource.SoundCloud)
     except wavelink.LavalinkLoadException as e:
         raise RuntimeError("Failed to load tracks") from e
 
