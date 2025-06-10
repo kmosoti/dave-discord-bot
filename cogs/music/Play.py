@@ -28,18 +28,34 @@ async def connect_to_voice_channel(ctx: discord.ApplicationContext) -> wavelink.
 
 # Helper function to perform a search and return the first track.
 async def search_for_track(query: str) -> wavelink.Playable:
-    if query.startswith("http"):
-        songs = await wavelink.Playable.search(query)
+    """Search SoundCloud for a playable track.
+
+    This helper filters out SoundCloud Go+ (premium) tracks which only return
+    30 second previews. ``wavelink`` exposes this information via the
+    :attr:`wavelink.Playable.is_preview` attribute. If all returned tracks are
+    previews, ``ValueError`` is raised so the caller can inform the user.
+    """
+
     try:
-        songs = await wavelink.Playable.search(query, source=wavelink.TrackSource.SoundCloud)
+        if query.startswith("http"):
+            songs = await wavelink.Playable.search(query, source=wavelink.TrackSource.SoundCloud)
+        else:
+            songs = await wavelink.Playable.search(query, source=wavelink.TrackSource.SoundCloud)
     except wavelink.LavalinkLoadException as e:
         raise RuntimeError("Failed to load tracks") from e
 
     if not songs:
         return None
 
-    # Return the first track from the search results.
-    return songs[0]
+    # Filter out tracks that are marked as previews (SoundCloud Go+).
+    for track in songs:
+        # ``is_preview`` can be ``None`` if Lavalink does not provide this
+        # information, so explicitly check for ``True``.
+        if not track.is_preview:
+            return track
+
+    # If we get here, every track was a preview/premium track.
+    raise ValueError("SoundCloud returned only preview tracks")
 
 # Removed: schedule_inactivity_disconnect function is no longer needed because we use the built-in inactive_timeout.
 # async def schedule_inactivity_disconnect(player: wavelink.Player):
@@ -113,7 +129,9 @@ class PlayCog(commands.Cog):
         try:
             # Use the helper to connect to the voice channel.
             vc = await connect_to_voice_channel(ctx)
-            # Use the helper to search for a track.
+
+            # Use the helper to search for a track. This may raise a ValueError
+            # if only premium preview tracks are found.
             song = await search_for_track(search)
 
             if not vc.playing:
@@ -122,6 +140,11 @@ class PlayCog(commands.Cog):
             else:
                 await queue_song(vc, song, ctx)
                 await ctx.respond(f"Added to queue: `{song.title}`")
+        except ValueError:
+            # Raised when a SoundCloud premium track is requested. Inform the user
+            # so they can choose something else.
+            await ctx.respond("This SoundCloud track is premium-only and cannot be played.")
+            log_command_invocation(ctx, "premium track skipped")
         except Exception as e:
             log_error(ctx, "An error occurred in 'play' command", exception=e)
             await ctx.respond("An error occurred while processing your request.")
