@@ -1,3 +1,5 @@
+> **Lifecycle: Frozen Showcase — 2026-08-29.** DAVE is preserved as a representative earlier project. It is not under active feature development.
+
 # DAVE - Discord Audio Virtual Entertainment
 
 <a href="https://github.com/kmosoti/dave-discord-bot">
